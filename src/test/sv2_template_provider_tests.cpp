@@ -123,10 +123,8 @@ BOOST_AUTO_TEST_CASE(client_tests)
     std::vector<CTransactionRef> high_fee_txs{MakeDummyTx()};
     tester.m_mining_control->TriggerFeeIncrease(high_fee_txs);
 
-    // Move mock time
-    SetMockTime(GetMockTime() + std::chrono::seconds{tester.m_tp_options.fee_check_interval});
-
     // Wait for a new template sequence instead of sleeping
+    // Note: No need to advance mock time anymore since sv2interval was removed
     BOOST_REQUIRE(tester.m_mining_control->WaitForTemplateSeq(seq_after_first + 1));
 
     // Expect our peer to receive a NewTemplate message (prevhash unchanged)
@@ -183,11 +181,8 @@ BOOST_AUTO_TEST_CASE(client_tests)
     std::vector<CTransactionRef> higher_fee_txs{MakeDummyTx()};
     tester.m_mining_control->TriggerFeeIncrease(higher_fee_txs);
 
-    // Move mock time
-    SetMockTime(GetMockTime() + std::chrono::seconds{tester.m_tp_options.fee_check_interval});
-
-    // Briefly wait for the timer in ThreadSv2Handler and block creation
     // Wait for sequence to advance again (second fee increase)
+    // Note: No need to advance mock time anymore since sv2interval was removed
     BOOST_REQUIRE(tester.m_mining_control->WaitForTemplateSeq(seq_after_fee_nt + 1));
 
     // Expect our peer to receive a NewTemplate message

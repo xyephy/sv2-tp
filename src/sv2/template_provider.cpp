@@ -134,31 +134,6 @@ void Sv2TemplateProvider::StopThreads()
     }
 }
 
-class Timer {
-private:
-    std::chrono::seconds m_interval;
-    std::chrono::seconds m_last_triggered;
-
-public:
-    Timer(std::chrono::seconds interval) : m_interval(interval) {
-        reset();
-    }
-
-    bool trigger() {
-        auto now{GetTime<std::chrono::seconds>()};
-        if (now - m_last_triggered >= m_interval) {
-            m_last_triggered = now;
-            return true;
-        }
-        return false;
-    }
-
-    void reset() {
-        auto now{GetTime<std::chrono::seconds>()};
-        m_last_triggered = now;
-    }
-};
-
 void Sv2TemplateProvider::ThreadSv2Handler()
 {
     // Make sure it's initialized, doesn't need to be accurate.
@@ -230,7 +205,6 @@ void Sv2TemplateProvider::ThreadSv2Handler()
 void Sv2TemplateProvider::ThreadSv2ClientHandler(size_t client_id)
 {
     try {
-        Timer timer(m_options.fee_check_interval);
         std::shared_ptr<BlockTemplate> block_template;
 
         const auto prepare_block_create_options = [this, client_id](node::BlockCreateOptions& options) -> bool {
@@ -295,37 +269,24 @@ void Sv2TemplateProvider::ThreadSv2ClientHandler(size_t client_id)
                         client->m_disconnect_flag = true;
                     }
                 }
-
-                timer.reset();
             }
 
             // The future template flag is set when there's a new prevhash,
             // not when there's only a fee increase.
             bool future_template{false};
 
-            // -sv2interval=N requires that we don't send fee updates until at least
-            // N seconds have gone by. So we first call waitNext() without a fee
-            // threshold, and then on the next while iteration we set it.
-            // TODO: add test coverage
-            const bool check_fees{m_options.is_test || timer.trigger()};
-
-            CAmount fee_delta{check_fees ? m_options.fee_delta : MAX_MONEY};
-
             node::BlockWaitOptions options;
-            options.fee_threshold = fee_delta;
-            // Always set a timeout so Ctrl+C interrupts within a bounded time.
-            options.timeout = m_options.is_test ? MillisecondsDouble(1000) : m_options.fee_check_interval;
-            if (!check_fees) {
-                LogPrintLevel(BCLog::SV2, BCLog::Level::Trace,
-                              "Ignore fee changes for %d seconds (-sv2interval), wait for a new tip, client id=%zu\n",
-                              m_options.fee_check_interval.count(), client_id);
-            } else {
-                LogPrintLevel(BCLog::SV2, BCLog::Level::Trace,
-                              "Wait up to %d seconds for fees to rise by %lld sat or a new tip, client id=%zu\n",
-                              m_options.fee_check_interval.count(),
-                              static_cast<long long>(fee_delta),
-                              client_id);
-            }
+            options.fee_threshold = m_options.fee_delta;
+            // Set a timeout for Bitcoin Core v30 compatibility. On v30, waitNext()
+            // cannot be interrupted, so we need periodic timeouts to allow Ctrl+C
+            // to work. On newer versions with interruptWait() support, this timeout
+            // is harmless (waitNext() will be interrupted immediately on shutdown).
+            options.timeout = m_options.is_test ? MillisecondsDouble(1000) : std::chrono::seconds(15);
+
+            LogPrintLevel(BCLog::SV2, BCLog::Level::Trace,
+                          "Wait for fees to rise by %lld sat or a new tip, client id=%zu\n",
+                          static_cast<long long>(m_options.fee_delta),
+                          client_id);
 
             uint256 old_prev_hash{block_template->getBlockHeader().hashPrevBlock};
             std::shared_ptr<BlockTemplate> tmpl = block_template->waitNext(options);
@@ -371,8 +332,6 @@ void Sv2TemplateProvider::ThreadSv2ClientHandler(size_t client_id)
                         client->m_disconnect_flag = true;
                     }
                 }
-
-                timer.reset();
             }
 
             if (m_options.is_test) {

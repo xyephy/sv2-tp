@@ -99,14 +99,13 @@ but could also be provided as part of SRI.
 
 ### Mempool monitoring
 
-The current design calls `CreateNewBlock()` internally every `-sv2interval` seconds.
-We then broadcast the resulting block template if fees have increased enough to make
-it worth the overhead (`-sv2feedelta`). A pool may have additional rate limiting in
-place.
+The Template Provider uses Bitcoin Core's `waitNext()` IPC method to efficiently monitor
+for new block templates. New templates are broadcast when either a new block is found or
+fees have increased by at least `-sv2feedelta` satoshis.
 
 This is better than the Stratum v1 model of a polling call to the `getblocktemplate` RPC.
 It avoids (de)serializing JSON, uses an encrypted connection and only sends data
-over the wire if fees increased.
+over the wire when necessary (new block or sufficient fee increase).
 
 But it's still a poll based model, as opposed to the push based approach
 whenever a new block arrives. It would be better if a new template is generated
@@ -144,12 +143,9 @@ using `-sv2bind`. See DoS and Privacy above.
 Use `-debug=sv2` to see Stratum v2 related log messages. Set `-loglevel=sv2:trace`
 to see which messages are exchanged with the Job Declarator client.
 
-The frequency at which new templates are generated can be controlled with
-`-sv2interval`. The new templates are only submitted to connected clients if
-they are for a new block, or if fees have increased by at least `-sv2feedelta`.
-
-You may increase `-sv2interval`` to something your node can handle, and then
-adjust `-sv2feedelta` to limit back and forth with the pool.
+New templates are submitted to connected clients when a new block is found or when
+fees have increased by at least `-sv2feedelta` satoshis. You can adjust `-sv2feedelta`
+to control the frequency of fee-based template updates.
 
 ## Testing Guide
 

@@ -64,7 +64,6 @@ Here is an example configuration:
 chain=signet
 
 ipcconnect=unix
-sv2interval=30
 sv2feedelta=1000
 
 # Logging
