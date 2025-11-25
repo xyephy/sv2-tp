@@ -332,9 +332,9 @@ ln -s /path/to/project/root/src src
 
 4. If your IDE has an option for this, change your breakpoints to use the file name only.
 
-### debug.log
+### sv2-debug.log
 
-If the code is behaving strangely, take a look in the `debug.log` file in the data directory;
+If the code is behaving strangely, take a look in the `sv2-debug.log` file in the data directory;
 error and debugging messages are written there.
 
 Debug logging can be enabled on startup with the `-debug` and `-loglevel`
@@ -357,13 +357,13 @@ Bitcoin Core is a multi-threaded application, and deadlocks or other
 multi-threading bugs can be very difficult to track down. The `-DCMAKE_BUILD_TYPE=Debug`
 build option adds `-DDEBUG_LOCKORDER` to the compiler flags. This inserts
 run-time checks to keep track of which locks are held and adds warnings to the
-`debug.log` file if inconsistencies are detected.
+`sv2-debug.log` file if inconsistencies are detected.
 
 ### DEBUG_LOCKCONTENTION
 
 Defining `DEBUG_LOCKCONTENTION` adds a "lock" logging category to the logging
 RPC that, when enabled, logs the location and duration of each lock contention
-to the `debug.log` file.
+to the `sv2-debug.log` file.
 
 The `-DCMAKE_BUILD_TYPE=Debug` build option adds `-DDEBUG_LOCKCONTENTION` to the
 compiler flags. You may also enable it manually by building with `-DDEBUG_LOCKCONTENTION`
@@ -657,7 +657,7 @@ Deadlocks due to inconsistent lock ordering (thread 1 locks `cs_main` and then
 `cs_wallet`, while thread 2 locks them in the opposite order: result, deadlock
 as each waits for the other to release its lock) are a problem. Compile with
 `-DDEBUG_LOCKORDER` (or use `-DCMAKE_BUILD_TYPE=Debug`) to get lock order inconsistencies
-reported in the `debug.log` file.
+reported in the `sv2-debug.log` file.
 
 Re-architecting the core code so there are better-defined interfaces
 between the various components is a goal, with any necessary locking

@@ -79,7 +79,7 @@ the system's temporary directory (see
 [`temp_directory_path`](https://en.cppreference.com/w/cpp/filesystem/temp_directory_path)).
 This data directory looks like a simplified form of the standard `bitcoind` data
 directory. Its content will vary depending on the test, but it will always
-have a `debug.log` file, for example.
+have a `sv2-debug.log` file, for example.
 
 The location of the temporary data directory can be specified with the
 `-testdatadir` option. This can make debugging easier. The directory
@@ -88,7 +88,7 @@ path used is the argument path appended with
 The directory path is created if necessary.
 Specifying this argument also causes the data directory
 not to be removed after the last test. This is useful for looking at
-what the test wrote to `debug.log` after it completes, for example.
+what the test wrote to `sv2-debug.log` after it completes, for example.
 (The directory is removed at the start of the next test run,
 so no leftover state is used.)
 
@@ -101,7 +101,7 @@ Running 1 test case...
 $ ls -l '/somewhere/mydatadir/test_common bitcoin/getarg_tests/doubledash/datadir'
 total 8
 drwxrwxr-x 2 admin admin 4096 Nov 27 22:45 blocks
--rw-rw-r-- 1 admin admin 1003 Nov 27 22:45 debug.log
+-rw-rw-r-- 1 admin admin 1003 Nov 27 22:45 sv2-debug.log
 ```
 
 If you run an entire test suite, such as `--run_test=getarg_tests`, or all the test suites

@@ -145,10 +145,10 @@ touch "/Users/${USER}/Library/Application Support/Bitcoin/bitcoin.conf"
 chmod 600 "/Users/${USER}/Library/Application Support/Bitcoin/bitcoin.conf"
 ```
 
-You can monitor the download process by looking at the debug.log file:
+You can monitor the download process by looking at the sv2-debug.log file:
 
 ```shell
-tail -f $HOME/Library/Application\ Support/Bitcoin/debug.log
+tail -f $HOME/Library/Application\ Support/Bitcoin/sv2-debug.log
 ```
 
 ## Other commands:

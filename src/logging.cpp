@@ -20,7 +20,7 @@
 using util::Join;
 using util::RemovePrefixView;
 
-const char * const DEFAULT_DEBUGLOGFILE = "debug.log";
+const char * const DEFAULT_DEBUGLOGFILE = "sv2-debug.log";
 constexpr auto MAX_USER_SETABLE_SEVERITY_LEVEL{BCLog::Level::Info};
 
 BCLog::Logger& LogInstance()
