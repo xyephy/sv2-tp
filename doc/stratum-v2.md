@@ -181,164 +181,80 @@ You can set up an entire pool on your own machine. You can also connect to an
 existing pool and only run a limited set of roles on your machine, e.g. the
 Job Declarator client and Translator (v1 to v2).
 
-SRI includes a v1 and v2 CPU miner, but at the time of writing neither seems to work.
-Another CPU miner that does work, when used with the Translator: https://github.com/pooler/cpuminer
+The native Sv2 CPU miner in SRI works for local regtest testing, so a
+Translator is not required there.
 
 ### Regtest
 
-TODO
+Regtest is the easiest way to exercise Stratum v2 mining end to end with only
+local processes.
 
-This is also needed for functional test suite coverage. It's also the only test
-network doesn't need a standalone CPU miner or ASIC.
-
-Perhaps a mock Job Declarator client can be added. We also need a way mine a given
-block template, akin to `generate`.
-
-To make testing easier it should be possible to use a connection without Noise Protocol.
-
-### Testnet
-
-The difficulty on testnet4 varies wildly, but typically much too high for CPU mining.
-Even when using a relatively cheap second hand miner, e.g. an S9, it could take
-weeks to find a block.
-
-The above means it's difficult to test the `SubmitSolution` message.
-
-#### Bring your own ASIC, use external testnet pool
-
-This uses an existing testnet pool. There's no need to create an account anywhere.
-The pool does not pay out the testnet coins it generates. It also currently
-doesn't censor anything, so you can't test the (solo mining) fallback behavior.
-
-First start the node:
-
-```
-build/bin/bitcoind -testnet4 -sv2 -debug=sv2
-```
-
-Build and run a Job Declarator client: [sv2-apps/miner-apps/jd-client](https://github.com/stratum-mining/sv2-apps/tree/main/miner-apps/jd-client)
-
-This client connects to your node to receive new block templates and then "declares"
-them to a Job Declarator server. Additionally it connects to the pool itself.
-
-Copy [jdc-config-hosted-example.toml](https://github.com/stratum-mining/sv2-apps/blob/main/miner-apps/jd-client/config-examples/jdc-config-hosted-example.toml)
-to e.g. `~/.stratum/testnet4-jdc.toml` and comment out `tp_authority_public_key`.
-
-The `coinbase_outputs` is used for fallback to solo mining. Generate an address
-of any type and then use the `getaddressinfo` RPC to find its public key.
-
-Finally you most likely need to use the v1 to v2 translator: [sv2-apps/miner-apps/translator](https://github.com/stratum-mining/sv2-apps/tree/main/miner-apps/translator),
-even when you have a stratum v2 capable miner (see notes on ASIC's and Firmware below).
-
-You need to point the translator to your job declarator client, which in turn takes
-care of connecting to the pool. Try [tproxy-config-local-jdc-example.toml](https://github.com/stratum-mining/sv2-apps/blob/main/miner-apps/translator/config-examples/tproxy-config-local-jdc-example.toml).
-
-As soon as you turn on the translator, the Bitcoin Core log should show a `SetupConnection` [message](https://github.com/stratum-mining/sv2-spec/blob/main/08-Message-Types.md).
-
-Now point your ASIC to the translator. At this point you should be seeing
-`NewTemplate`, `SetNewPrevHash` and `SetNewPrevHash` messages.
-
-If the pool is down, notify someone on the above mentioned Discord.
-
-### SRI Signet
-
-Unlike testnet4, signet(s) use the regular difficulty adjustment mechanism.
-Although the default signet has very low difficulty, you can't mine on it,
-because to do so requires signing blocks using a private key that only two people have.
-
-The SRI team operates a signet that does not require signatures:
-
-```ini
-[signet]
-signetchallenge=51      # OP_TRUE
-connect=75.119.150.111
-```
-
-Unlike regtest this network does have difficulty (adjustment). This allows you to
-test if e.g. pool software correctly sets and adjusts the share difficulty for each
-participant. Although for the Template Provider role this is not relevant.
-
-You can also create your own custom unsigned signet using the above configuration,
-just make to _not_ connect to the SRI signet because it might reorg your own chain.
-
-#### Mining
-
-The cleanest setup involves two connected nodes, each with their own data
-directory: one for the pool and one for the miner. By selectively breaking the
-connection you can inspect how unknown transactions in the template are requested
-by the pool, and how a newly found block is submitted is submitted both by the
-pool and the miner.
-
-However things should work fine with just one node.
-
-Start the miner node first, with a GUI for convenience:
+In one terminal, start Bitcoin Core with IPC enabled:
 
 ```sh
-build/bin/qt/bitcoin-qt -datadir=$HOME/.stratum/bitcoin -signet
+bitcoin -m node -regtest -ipcbind=unix
 ```
 
-Suggested config for the pool node:
+In another terminal, ensure at least 17 blocks have been mined:
 
-```ini
-[signet]
-signetchallenge=51      # OP_TRUE
-server=0
-listen=0
-connect=75.119.150.111  # SRI
-```
-
-The above disables its RPC server and p2p listening to avoid a port conflict.
-
-Start the pool node:
+For now, those first 17 blocks are still mined over RPC because of the low
+height coinbase `bad-cb-length` issue described in Bitcoin Core PR
+[#34860](https://github.com/bitcoin/bitcoin/pull/34860).
 
 ```sh
-build/bin/bitcoind -datadir=$HOME/.stratum/bitcoin-pool -signet
+COUNT=$(bitcoin-cli -regtest getblockcount)
+if [ "$COUNT" -lt 17 ]; then
+  bitcoin-cli -regtest -rpcwait createwallet miner
+  ADDR=$(bitcoin-cli -regtest -rpcwallet=miner getnewaddress)
+  bitcoin-cli -regtest -rpcwallet=miner generatetoaddress $((17 - COUNT)) "$ADDR"
+fi
+bitcoin-cli -regtest getblockcount
 ```
 
-Configure an SRI pool:
-
-```
-cd roles/pool
-mkdir -p ~/.stratum
-cp
-```
-
-Start the SRI pool:
+Now start `sv2-tp`:
 
 ```sh
-cargo run -p pool_sv2 -- -c ~/.stratum/signet-pool.toml
+sv2-tp -regtest -conf=0 -ipcconnect=unix -debug=sv2
 ```
 
-For the Job Declarator _client_ and Translator, see Testnet above.
+The SRI Pool role can connect directly to that local Template Provider. Save a
+minimal config such as:
 
-Now use the [CPU miner](https://github.com/pooler/cpuminer) and point it to the translator:
+```toml
+authority_public_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
+authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
+cert_validity_sec = 3600
+listen_address = "127.0.0.1:33333"
+coinbase_reward_script = "addr(REPLACE_WITH_REGTEST_ADDRESS)"
+server_id = 1
+pool_signature = "Stratum V2 SRI Pool"
+shares_per_minute = 6.0
+share_batch_size = 10
 
+[template_provider_type.Sv2Tp]
+address = "127.0.0.1:18447"
 ```
-./minerd -a sha256d -o stratum+tcp://localhost:34255 -q -D -P
+
+Start the pool role:
+
+```sh
+pool_sv2 -c /path/to/pool-regtest.toml
 ```
 
-You can also a BitAxe, but please do so only for a few minutes at a time
-to prevent increasing the difficulty too much for others.
+Finally start the native Sv2 CPU miner and point it at the pool:
 
-### Mainnet
+```sh
+mining_device --address-pool 127.0.0.1:33333 --nominal-hashrate-multiplier 0.01 --cores 1
+```
 
-See testnet for how to use an external pool. See signet for how to configure your own pool.
+At this point the pool log should show `SetupConnection`,
+`OpenStandardMiningChannel`, and then `SubmitSharesStandard` / `SubmitSolution`
+for newly found blocks. Check `bitcoin-cli -regtest getblockcount` again; it
+should advance past 17, and in a typical run the pool and miner will find
+multiple blocks quickly.
 
-Pools that support Stratum v2 on mainnet:
+This setup is also a good target for future functional test coverage.
 
-* Braiins: unclear if they are currently compatible with latest spec. URL's are
-           listed [here](https://academy.braiins.com/en/braiins-pool/stratum-v2-manual/#servers-and-ports). There's no Job Declarator server.
-* DEMAND : No account needed for solo mining. Both the pool and Job Declarator
-           server are at `dmnd.work:2000`. Requires a custom SRI branch, see [instructions](https://dmnd.work/#solo-mine).
-
-### Notes on ASIC's and Firmware:
-
-#### BraiinsOS
-
-* v22.08.1 uses an (incompatible) older version of Stratum v2
-* v23.12 is untested (and not available on S9)
-* v22.08.1 when used in Stratum v1 mode, does not work with the SRI Translator
-
-#### Antminer stock OS
-
-This should work with the Translator, but has not been tested.
+For testnet, signet, mainnet, translator, Job Declarator client, and ASIC-based
+setups, refer to the official SRI documentation:
+https://github.com/stratum-mining/sv2-apps
