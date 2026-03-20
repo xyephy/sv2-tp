@@ -128,7 +128,7 @@ void Sv2TemplateProvider::Interrupt()
 {
     AssertLockNotHeld(m_tp_mutex);
 
-    LogPrintLevel(BCLog::SV2, BCLog::Level::Trace, "Interrupt pending waitNext() calls...");
+    LogPrintLevel(BCLog::SV2, BCLog::Level::Trace, "Interrupt pending mining waits...");
     {
         LOCK(m_tp_mutex);
         for (auto& t : GetBlockTemplates()) {
@@ -137,6 +137,7 @@ void Sv2TemplateProvider::Interrupt()
     }
 
     m_flag_interrupt_sv2 = true;
+    m_mining.interrupt();
     // Also interrupt network threads so client handlers can wind down quickly.
     if (m_connman) m_connman->Interrupt();
 }
