@@ -43,7 +43,8 @@ readonly BITCOIN="${BITCOIN_BINDIR}/bitcoin"
 readonly BITCOIN_CLI="${BITCOIN_BINDIR}/bitcoin-cli"
 readonly SV2_TP="${REPO_ROOT}/build/bin/sv2-tp"
 readonly POOL_SV2="${SV2_APPS_DIR}/pool-apps/target/release/pool_sv2"
-readonly MINING_DEVICE="${SV2_APPS_DIR}/miner-apps/mining-device/target/release/mining_device"
+readonly MINING_DEVICE_MANIFEST="${SV2_APPS_DIR}/integration-tests/Cargo.toml"
+readonly MINING_DEVICE="${SV2_APPS_DIR}/integration-tests/target/release/mining_device"
 readonly -a BITCOIN_ARGS=("-datadir=${DATADIR}")
 
 SV2_TP_PID=""
@@ -129,6 +130,12 @@ update_sv2_apps()
     fi
 }
 
+build_mining_device()
+{
+    echo "Building mining_device"
+    cargo build --release --manifest-path="${MINING_DEVICE_MANIFEST}" --bin mining_device
+}
+
 build_phase()
 {
     echo "Preparing SRI integration test build artifacts"
@@ -142,8 +149,7 @@ build_phase()
     echo "Building pool_sv2"
     cargo build --release --manifest-path="${SV2_APPS_DIR}/pool-apps/pool/Cargo.toml"
 
-    echo "Building mining_device"
-    cargo build --release --manifest-path="${SV2_APPS_DIR}/miner-apps/mining-device/Cargo.toml"
+    build_mining_device
 }
 
 build_bitcoin_core_phase()
@@ -166,8 +172,7 @@ build_sv2_apps_phase()
     echo "Building pool_sv2"
     cargo build --release --manifest-path="${SV2_APPS_DIR}/pool-apps/pool/Cargo.toml"
 
-    echo "Building mining_device"
-    cargo build --release --manifest-path="${SV2_APPS_DIR}/miner-apps/mining-device/Cargo.toml"
+    build_mining_device
 }
 
 assert_run_prereqs()
