@@ -253,4 +253,34 @@ BOOST_AUTO_TEST_CASE(fee_timer_blocking_test)
     tester.m_mining_control->Shutdown();
 }
 
+// New tips must always produce a template, even when the fee timer is blocking.
+BOOST_AUTO_TEST_CASE(new_tip_bypasses_fee_timer_test)
+{
+    SetMockTime(std::chrono::seconds{0});
+
+    Sv2TemplateProviderOptions opts;
+    opts.is_test = false;
+    opts.template_interval = std::chrono::seconds{10};
+    TPTester tester{opts};
+
+    tester.handshake();
+    tester.SendSetupConnection();
+    tester.SendCoinbaseOutputConstraints();
+    tester.ReceiveTemplatePair();
+
+    uint64_t seq = tester.m_mining_control->GetTemplateSeq();
+
+    // Timer just reset (10s interval). A new tip should still produce a
+    // template immediately, bypassing the fee timer.
+    BOOST_TEST_MESSAGE("Trigger new tip while fee timer is blocking");
+    tester.m_mining_control->TriggerNewTip();
+
+    bool got_template = tester.m_mining_control->WaitForTemplateSeq(seq + 1, std::chrono::milliseconds{3000});
+    BOOST_REQUIRE_MESSAGE(got_template, "New tip should bypass fee timer and produce a template");
+    tester.ReceiveTemplatePair();
+    BOOST_REQUIRE_EQUAL(tester.GetBlockTemplateCount(), 2);
+
+    tester.m_mining_control->Shutdown();
+}
+
 BOOST_AUTO_TEST_SUITE_END()
