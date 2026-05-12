@@ -24,6 +24,7 @@ target_sources(test_sv2
 PRIVATE
   util/net.cpp
   sv2_test_setup.cpp
+  sv2_connman_tester.cpp
   sv2_connman_tests.cpp
   sv2_noise_tests.cpp
   sv2_transport_tests.cpp
