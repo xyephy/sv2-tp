@@ -6,7 +6,6 @@
 
 #include <test/sv2_test_setup.h>          // Sv2BasicTestingSetup fixture
 #include <test/sv2_tp_tester.h>
-#include <sv2/messages.h>
 
 /*
  * Regression / lifecycle test: construct and destruct TPTester multiple times
@@ -28,21 +27,9 @@ BOOST_AUTO_TEST_CASE(tp_tester_repeated_construction)
             // allocates resources and creates at least one client connection.
             tester.handshake();
 
-            // Send SetupConnection
-            auto setup = tester.SetupConnectionMsg();
-            tester.receiveMessage(setup);
-            // Consume SetupConnection.Success reply
-            tester.PeerReceiveBytes();
-
-            // Provide coinbase output constraints to trigger initial template work
-            std::vector<uint8_t> coinbase_output_constraint_bytes{
-                0x01, 0x00, 0x00, 0x00, // coinbase_output_max_additional_size
-                0x00, 0x00              // coinbase_output_max_sigops
-            };
-            node::Sv2NetMsg constraints{node::Sv2MsgType::COINBASE_OUTPUT_CONSTRAINTS, std::move(coinbase_output_constraint_bytes)};
-            tester.receiveMessage(constraints);
-            // Expect NewTemplate + SetNewPrevHash pair (ignore exact size here)
-            tester.PeerReceiveBytes();
+            tester.SendSetupConnection();
+            tester.SendCoinbaseOutputConstraints();
+            tester.ReceiveTemplatePair();
         }
         // On leaving scope: destructor of TPTester should cleanly tear down.
         // If any dangling references or threads exist they should surface as
